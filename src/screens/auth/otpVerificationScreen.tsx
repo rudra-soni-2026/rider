@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from "react";
-import secureLocalStorage from "react-secure-storage";
-import { ThreeDots } from "react-loader-spinner";
-import AppBar from "../../components/appBar";
-import { customRequest } from "../../utils/customRequest";
-import { loggedInUser } from "../../state/userState";
-import { currentSelectedBottomTabIndex, showAlertPopup } from "../../state/uiState";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import secureLocalStorage from "react-secure-storage";
+import { BeatLoader } from "react-spinners";
+import AppBar from "../../components/appBar";
+import { currentSelectedBottomTabIndex, showAlertPopup } from "../../state/uiState";
+import { loggedInUser } from "../../state/userState";
+import { customRequest } from "../../utils/customRequest";
 import sendDataToReactNative from "../../utils/nativeCommunication";
 
 const OtpVerificationScreen = () => {
@@ -28,7 +28,7 @@ const OtpVerificationScreen = () => {
         return () => clearInterval(interval);
     }, [timer]);
 
-    const handleChange = (val, index) => {
+    const handleChange = (val: string, index: number) => {
         if (!/^\d?$/.test(val)) return;
         const newOtp = [...otp];
         newOtp[index] = val;
@@ -39,7 +39,7 @@ const OtpVerificationScreen = () => {
         }
     };
 
-    const handleKeyDown = (e, index) => {
+    const handleKeyDown = (e, index: number) => {
         if (e.key === "Backspace" && !otp[index] && index > 0) {
             inputs.current[index - 1]?.focus();
         }
@@ -62,7 +62,7 @@ const OtpVerificationScreen = () => {
             if (res.status === 200) {
 
                 secureLocalStorage.setItem("key", res.data.data.authorization.token)
-                
+
                 if (res.data.data.details_submitted) {
                     loggedInUser.value = res.data.data;
 
@@ -150,7 +150,7 @@ const OtpVerificationScreen = () => {
                             className="bg-[var(--primary-color)] text-white px-4 py-2 rounded disabled:opacity-50"
                         >
                             {loading ?
-                                <ThreeDots color="white" height={22} width={40} />
+                                <BeatLoader color="white" size={22} />
                                 :
                                 "Verify OTP"}
                         </button>

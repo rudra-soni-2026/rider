@@ -27,7 +27,7 @@ const steps = [
 export default function OnboardingScreen() {
     const [step, setStep] = useState(0);
     const [selectedStep, setSelectedStep] = useState(steps[0]);
-    const [stores, setStores] = useState(null);
+    const [stores, setStores] = useState<[] | null>(null);
 
     // Form state for each step (simplified for demo)
     const navigate = useNavigate();
@@ -187,7 +187,7 @@ export default function OnboardingScreen() {
             const user = await res.json();
             loggedInUser.value = user;
             setSubmitSuccess(true);
-        } catch (err) {
+        } catch (err: any) {
             setSubmitError(err.message || "Submission failed");
         } finally {
             setSubmitting(false);
@@ -197,7 +197,7 @@ export default function OnboardingScreen() {
     // Payment handler
     async function handlePayment() {
         setPaymentInProgress(true);
-        setPaymentError(null);
+        setPaymentError(false);
         try {
             // Determine amount based on plan
             let amount = paymentPlan === "full" ? 849 : 150;
@@ -218,7 +218,7 @@ export default function OnboardingScreen() {
                 user_id: "RIDER",
                 user_name: panDetails.name
             });
-        } catch (err) {
+        } catch (err: any) {
             setPaymentError(err.message || "Payment failed");
             setPaymentInProgress(false);
         }

@@ -30,8 +30,8 @@ export const pocketData: Signal<unknown> = signal(null);
 
 export const availableRidesData: Signal<unknown> = signal([]);
 
-export const currentLocation: Signal<unknown> = signal(null);
+export const currentLocation: Signal<any> = signal(null);
 
-export const qrCodeScanResult: Signal<unknown> = signal(null);
+export const qrCodeScanResult: Signal<string | null> = signal(null);
 
 export const riderInfoData: Signal<LoggedInUserData | null> = signal(null);

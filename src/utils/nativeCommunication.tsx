@@ -1,6 +1,7 @@
 import secureLocalStorage from "react-secure-storage";
 import { currentLocation, loggedInUser, qrCodeScanResult } from "../state/userState";
 import { appStatusBarHeight, availableForRide, paymentSuccessCaptured } from "../state/uiState";
+import { customRequest } from "./customRequest";
 
 export default function sendDataToReactNative(data: any) {
     try {
@@ -15,6 +16,7 @@ export default function sendDataToReactNative(data: any) {
 export const handleDataReceiveFromReactNative = async (data: any) => {
     if (data.action === "current_position") {
         currentLocation.value = data.position;
+        await customRequest('/update-location', { method: "POST", data: { latitude: data.position.latitude, longitude: data.position.longitude } });
     } else if (data.action === "qr-code-result") {
         qrCodeScanResult.value = data.result;
     } else if (data.action === "get-key-value" && data.key === "available_for_ride") {

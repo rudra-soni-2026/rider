@@ -159,6 +159,7 @@ export default function DeliveryMapScreen() {
         setIsSwiping(true);
         setSwipeX(e.clientX);
     };
+
     const handlePointerMove = (e: React.PointerEvent) => {
         if (!isSwiping) return;
         const delta = e.clientX - swipeX;
@@ -166,6 +167,7 @@ export default function DeliveryMapScreen() {
             swipeRef.current.style.transform = `translateX(${Math.max(0, delta)}px)`;
         }
     };
+
     const handlePointerUp = (e: React.PointerEvent) => {
         setIsSwiping(false);
         const delta = e.clientX - swipeX;
@@ -246,6 +248,7 @@ export default function DeliveryMapScreen() {
     useEffect(() => {
         const loc = currentLocation.value as Location | undefined;
         if (!mapRef.current || !loc || typeof loc.latitude !== "number" || typeof loc.longitude !== "number" || typeof orderLatitude !== "number" || typeof orderLongitude !== "number") return;
+        // updateLocation(loc);
         // Update rider marker position
         if (riderMarkerRef.current && riderMarkerRef.current.setLngLat) {
             riderMarkerRef.current.setLngLat([loc.longitude, loc.latitude]);
@@ -269,12 +272,17 @@ export default function DeliveryMapScreen() {
 
     // Periodically fetch rider's current location every 3 seconds
     useEffect(() => {
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
             getCurrentPosition();
-        }, 3000);
+        }, 8000);
         return () => clearInterval(interval);
     }, []);
 
+    const updateLocation = async (location: Location | null) => {
+        if (!location) return;
+        const res = await customRequest('/update-location', { method: "POST", data: { latitude: location.latitude, longitude: location.longitude } });
+        console.log(JSON.stringify(res));
+    }
 
     return (
         <div className="h-full w-full relative">

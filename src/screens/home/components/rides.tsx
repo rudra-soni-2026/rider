@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { customRequest } from '../../../utils/customRequest';
-import { availableRidesData, qrCodeScanResult } from '../../../state/userState';
-import { ThreeDots } from 'react-loader-spinner';
-import sendDataToReactNative from '../../../utils/nativeCommunication';
-import { useNavigate } from 'react-router';
-import { AppLoader } from '../../../components/loader';
-import EmptyPlaceholder from '../../../components/emptyPlaceholder';
-import { availableForRide, showAlertPopup } from '../../../state/uiState';
-import { useRef } from 'react';
 import { PhoneCallIcon } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { BeatLoader } from 'react-spinners';
+import EmptyPlaceholder from '../../../components/emptyPlaceholder';
+import { AppLoader } from '../../../components/loader';
+import { availableForRide, showAlertPopup } from '../../../state/uiState';
+import { availableRidesData, qrCodeScanResult } from '../../../state/userState';
+import { customRequest } from '../../../utils/customRequest';
+import sendDataToReactNative from '../../../utils/nativeCommunication';
+import { rootBase } from '../../../consts/links';
 
 
 const RidesComponent: React.FC = () => {
@@ -45,7 +45,7 @@ const RidesComponent: React.FC = () => {
         }
         <div className="flex flex-col gap-2">
           {
-            availableRidesData.value.map((order: any, index: number) => {
+            (availableRidesData.value ?? []).map((order: any, index: number) => {
               return (
                 <OrderPickupCard key={index} order={order} />
               )
@@ -84,8 +84,9 @@ function OrderPickupCard({ order }: OrderPickupCardProps) {
   const prevQrCodeValue = useRef<string | null>(null);
 
   // Handler for pickup button
-  const handleOrderPickup = () => {
+  const handleOrderPickup = async () => {
     if (order.pickup_accepted) {
+      await customRequest('/mark-order-intransist', { method: "POST", data: { order_id: order.order_id } } as any);
       navigate('/delivery-map', { state: { orderId: order.order_id, orderLongitude: order.user_longitude, orderLatitude: order.user_latitude, payment_mode: order.payment_mode } });
     } else {
       // Trigger native QR scan via React Native bridge
@@ -101,20 +102,22 @@ function OrderPickupCard({ order }: OrderPickupCardProps) {
     if (qrCodeScanResult.value !== null) {
       let qrCodeOrderFound = false;
       for (const item of availableRidesData.value) {
-        if (qrCodeScanResult.value === "ACCEPT_ORDER_" + item.order_id) {
-          setIsLoading(true);
-          qrCodeScanResult.value = null;
-          qrCodeOrderFound = true;
-          const res = await customRequest('/accept-order-pickup', { method: "POST", data: { order_id: item.order_id } } as any);
-          if (res.status === 200) {
-            // sendDataToReactNative({
-            //   action: 'show-toast',
-            //   message: res.data?.message || (res.error?.message ?? 'Unknown error')
-            // });
-          }
-          setIsLoading(false);
-          break; // Stop after first match
+        // if ((qrCodeScanResult.value).includes(`${rootlink}/delivery/accept/${item.order_id}`)) {
+        // if (qrCodeScanResult.value ===  "ACCEPT_ORDER_" + item.order_id) {
+        const url = (qrCodeScanResult.value ?? '').split(rootBase)[1];
+        setIsLoading(true);
+        qrCodeScanResult.value = null;
+        qrCodeOrderFound = true;
+        const res = await customRequest(url, { method: "POST", data: { order_id: item.order_id } } as any);
+        if (res.status === 200) {
+          // sendDataToReactNative({
+          //   action: 'show-toast',
+          //   message: res.data?.message || (res.error?.message ?? 'Unknown error')
+          // });
         }
+        setIsLoading(false);
+        break; // Stop after first match
+        // }
       }
       if (!qrCodeOrderFound) {
         showAlertPopup.value = "Invalid QR Code";
@@ -170,7 +173,7 @@ function OrderPickupCard({ order }: OrderPickupCardProps) {
         <div className={`flex items-center justify-center w-full p-3 rounded-lg text-white text-center font-bold ${order.pickup_accepted ? 'bg-green-500' : 'bg-blue-500'} bg-blue-500`}>
           {
             isLoading
-              ? <ThreeDots color="white" height={22} width={36} />
+              ? <BeatLoader color="white" size={25} />
               : order.pickup_accepted
                 ? "Open Map"
                 : "Scan QR to Accept"

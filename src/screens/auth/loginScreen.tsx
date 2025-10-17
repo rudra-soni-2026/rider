@@ -1,17 +1,15 @@
-import React, { useEffect, useState } from "react";
-
-import { ThreeDots } from "react-loader-spinner";
-import secureLocalStorage from "react-secure-storage";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { BeatLoader } from "react-spinners";
+import { secondaryPrimary } from "../../consts/colors";
+import { showAlertPopup } from "../../state/uiState";
 import { customRequest } from "../../utils/customRequest";
 import sendDataToReactNative from "../../utils/nativeCommunication";
-import { showAlertPopup } from "../../state/uiState";
-import { colorPrimary, secondaryPrimary } from "../../consts/colors";
 
 const LoginScreen = () => {
     const navigate = useNavigate();
     const [sendingOtp, setSendingOtp] = useState(false);
-    const [phone, setPhone] = useState();
+    const [phone, setPhone] = useState<string | null>(null);
 
     useEffect(() => {
         sendDataToReactNative({ action: 'changeStatusBarColor', color: secondaryPrimary, translucent: true, dark: true })
@@ -20,7 +18,7 @@ const LoginScreen = () => {
     const handleSendOtp = async () => {
         if (!sendingOtp) {
             setSendingOtp(true);
-            if (!phone || phone.trim().length !== 10) {
+            if (!phone || (phone ?? '').trim().length !== 10) {
                 showAlertPopup.value = "Please enter a valid 10-digit phone number";
                 setSendingOtp(false);
                 return;
@@ -30,7 +28,7 @@ const LoginScreen = () => {
             if (res.status === 200) {
                 setSendingOtp(false);
                 navigate(`/otp-verification?phone=${phone}`);
-                sendDataToReactNative({ action: 'changeStatusBarColor', color: secondaryPrimary, dark: true,translucent:true })
+                sendDataToReactNative({ action: 'changeStatusBarColor', color: secondaryPrimary, dark: true, translucent: true })
             } else {
                 setSendingOtp(false);
                 showAlertPopup.value = res.error.message
@@ -74,7 +72,7 @@ const LoginScreen = () => {
 
                     {
                         sendingOtp ?
-                            <ThreeDots color="white" height={22} width={40} />
+                            <BeatLoader color="white" size={22} />
                             :
                             "Continue"
                     }
