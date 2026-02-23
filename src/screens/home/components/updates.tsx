@@ -4,7 +4,7 @@ import { customRequest } from "../../../utils/customRequest";
 
 export const UpdateComponent: React.FC = () => {
 
-    const [notifications, setNotifications] = useState(null);
+    const [notifications, setNotifications] = useState<any[]>([]);
     const [videos, setVideos] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -36,7 +36,7 @@ export const UpdateComponent: React.FC = () => {
                     </div> */}
                 </div>
                 {
-                    notifications && notifications.map((noti, index) => {
+                    notifications && (notifications ?? []).map((noti, index) => {
                         return (
                             <div className="p-3 flex items-center gap-4 border-b border-gray-100">
                                 <div className="flex flex-col items-start justify-between w-full">
@@ -53,8 +53,9 @@ export const UpdateComponent: React.FC = () => {
             <h3 className="font-bold mb-3 px-2">QR Code to Receive Payment</h3>
 
             <div className="px-4">
-                <img src="https://i.ibb.co/6JTcFFCm/Whats-App-Image-2025-08-13-at-23-27-29-fe33b446.jpg" alt="" />
+                <img src="https://i.ibb.co/m5fQsXbL/Whats-App-Image-2025-10-18-at-07-22-22-6e90ee53.jpg" alt="" />
             </div>
+
 
             {/* {
                 videos && videos.length > 0

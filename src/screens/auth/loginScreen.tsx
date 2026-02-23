@@ -24,7 +24,16 @@ const LoginScreen = () => {
                 return;
             }
 
-            const res = await customRequest("/auth/send-otp", { method: "POST", data: { phone: phone, role: 'delivery-partner' } });
+            const res = await customRequest(
+                "/auth/send-otp",
+                {
+                    method: "POST",
+                    data: {
+                        phone: phone,
+                        role: 'delivery-partner',
+                        'type': 'delivery-partner',
+                    },
+                });
             if (res.status === 200) {
                 setSendingOtp(false);
                 navigate(`/otp-verification?phone=${phone}`);

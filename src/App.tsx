@@ -25,6 +25,7 @@ import RideHistoryScreen from "./screens/rideHistoryScreen";
 import HelpCenterScreen from "./screens/helpCenterScreen";
 import SupportTicketsScreen from "./screens/supportTicketsScreen";
 import VideosForYouScreen from "./screens/videosForYouScreen";
+// import DeliveryMapScreenTest from "./screens/test";
 
 
 
@@ -79,7 +80,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const handleMessage = (event) => {
+    const handleMessage = (event: any) => {
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         handleDataReceiveFromReactNative(data);
@@ -97,6 +98,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* <Route path="/test" element={<DeliveryMapScreenTest />} /> */}
         {loggedInUser.value ? (
           <>
             <Route path="/" element={<HomeScreen />} />

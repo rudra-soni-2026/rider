@@ -5,7 +5,7 @@ import { BeatLoader } from 'react-spinners';
 import EmptyPlaceholder from '../../../components/emptyPlaceholder';
 import { AppLoader } from '../../../components/loader';
 import { availableForRide, showAlertPopup } from '../../../state/uiState';
-import { availableRidesData, qrCodeScanResult } from '../../../state/userState';
+import { availableRidesData, loggedInUser, qrCodeScanResult } from '../../../state/userState';
 import { customRequest } from '../../../utils/customRequest';
 import sendDataToReactNative from '../../../utils/nativeCommunication';
 import { rootBase } from '../../../consts/links';
@@ -64,13 +64,14 @@ type Order = {
   user_longitude: number;
   user_latitude: number;
   order_date_time: string;
+  amount_to_collect: number;
   tip_amount?: number;
   user_address_type: string;
   user_name: string;
   user_area: string;
   payment_mode: string;
   phone_number: string;
-  // add other fields as needed
+  pickup_status: string;
 };
 
 interface OrderPickupCardProps {
@@ -86,8 +87,21 @@ function OrderPickupCard({ order }: OrderPickupCardProps) {
   // Handler for pickup button
   const handleOrderPickup = async () => {
     if (order.pickup_accepted) {
-      await customRequest('/mark-order-intransist', { method: "POST", data: { order_id: order.order_id } } as any);
-      navigate('/delivery-map', { state: { orderId: order.order_id, orderLongitude: order.user_longitude, orderLatitude: order.user_latitude, payment_mode: order.payment_mode } });
+      if (order.pickup_status != 'in_transit') {
+        await customRequest('/mark-order-intransist', { method: "POST", data: { order_id: order.order_id } } as any);
+      }
+      sendDataToReactNative({
+        action: 'store-key-value',
+        key: "riderId",
+        value: order.order_id
+      });
+      sendDataToReactNative({
+        action: 'store-key-value',
+        key: "currentOrderId",
+        value: JSON.stringify(loggedInUser.value?.id),
+      });
+      navigate('/delivery-map', { state: { orderId: order.order_id, orderLongitude: Number(order.user_longitude), orderLatitude: Number(order.user_latitude), payment_mode: order.payment_mode } });
+
     } else {
       // Trigger native QR scan via React Native bridge
       sendDataToReactNative({
@@ -146,7 +160,7 @@ function OrderPickupCard({ order }: OrderPickupCardProps) {
           <span className='text-xs text-gray-500'>{order.order_date_time}</span>
         </div>
         {
-          order.tip_amount !== null && order.tip_amount > 0
+          order.tip_amount !== null && (order.tip_amount ?? 0) > 0
           &&
           <div className="text-xs text-white rounded capitalize px-2 py-[2px] bg-green-500">Tip: ₹{order.tip_amount}</div>
         }

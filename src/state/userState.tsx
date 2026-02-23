@@ -12,6 +12,7 @@ export interface UserProfile {
 }
 
 export interface LoggedInUserData {
+    id: string;
     phone: string;
     code: string;
     profile: UserProfile;
@@ -28,7 +29,7 @@ export const loggedInUser: Signal<LoggedInUserData | null> = signal(null);
 
 export const pocketData: Signal<unknown> = signal(null);
 
-export const availableRidesData: Signal<unknown> = signal([]);
+export const availableRidesData: Signal<any[]> = signal([]);
 
 export const currentLocation: Signal<any> = signal(null);
 

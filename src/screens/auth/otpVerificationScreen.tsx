@@ -46,7 +46,12 @@ const OtpVerificationScreen = () => {
     };
 
     const resendOTP = async () => {
-        const res = await customRequest("/auth/send-otp", { method: "POST", data: { phone: phone } });
+        const res = await customRequest("/auth/send-otp", {
+            method: "POST", data: {
+                phone: phone,
+                'type': 'delivery-partner',
+            }
+        });
         setTimer(30)
     }
 
@@ -57,7 +62,11 @@ const OtpVerificationScreen = () => {
             const enteredOtp = otp.join("");
             const res = await customRequest("/auth/verify-otp", {
                 method: "POST",
-                data: { phone: phone, otp: enteredOtp },
+                data: {
+                    phone: phone,
+                    otp: enteredOtp,
+                    'type': 'delivery-partner',
+                },
             });
             if (res.status === 200) {
 
