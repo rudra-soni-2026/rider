@@ -1,4 +1,4 @@
-import { PhoneCallIcon } from 'lucide-react';
+import { PhoneCallIcon, MapPinIcon, UserIcon, CreditCardIcon, ClockIcon, PackageIcon } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { BeatLoader } from 'react-spinners';
@@ -10,6 +10,7 @@ import { customRequest } from '../../../utils/customRequest';
 import sendDataToReactNative from '../../../utils/nativeCommunication';
 import { rootBase } from '../../../consts/links';
 
+// ─── Container ────────────────────────────────────────────────────────────────
 
 const RidesComponent: React.FC = () => {
 
@@ -17,46 +18,50 @@ const RidesComponent: React.FC = () => {
     if (availableForRide.value) {
       const res = await customRequest("/available-rides");
       if (res.status === 200) {
-        availableRidesData.value = res.data.available_ride
+        availableRidesData.value = res.data.available_ride;
       }
     }
-  }
+  };
 
   useEffect(() => {
     getAvailableRides();
     const interval = setInterval(getAvailableRides, 10000);
     return () => clearInterval(interval);
-  }, [])
+  }, []);
+
+  if (!availableForRide.value) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-6">
+        <EmptyPlaceholder title='Turn your status on to see orders.' subtitle="" />
+      </div>
+    );
+  }
+
+  if (!Array.isArray(availableRidesData.value)) {
+    return <AppLoader />;
+  }
+
+  // ✅ Only one order is ever assigned to the rider at a time
+  const order = availableRidesData.value[0] ?? null;
+
+  if (!order) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-6">
+        <EmptyPlaceholder title='No active orders' subtitle="New orders will appear here automatically" />
+      </div>
+    );
+  }
 
   return (
-    !availableForRide.value
-      ?
-      <div className="w-full h-full p-3 text-sm font-sans overflow-y-auto">
-        <EmptyPlaceholder title='Turn your status to see orders.' subtitle="" />
-      </div>
-      :
-      <div className="w-full h-full p-3 text-sm font-sans overflow-y-auto">
-        {
-          !Array.isArray(availableRidesData.value)
-            ? <AppLoader />
-            : availableRidesData.value.length === 0
-              ? <EmptyPlaceholder title='No any order found' subtitle="" />
-              : null
-        }
-        <div className="flex flex-col gap-2">
-          {
-            (availableRidesData.value ?? []).map((order: any, index: number) => {
-              return (
-                <OrderPickupCard key={index} order={order} />
-              )
-            })
-          }
-        </div>
-      </div>
+    <div className="w-full h-full flex flex-col bg-gray-50">
+      <ActiveOrderCard order={order} />
+    </div>
   );
 };
 
 export default RidesComponent;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Order = {
   order_id: string;
@@ -74,36 +79,47 @@ type Order = {
   pickup_status: string;
 };
 
-interface OrderPickupCardProps {
-  order: Order;
-}
+// ─── Single Order Card ────────────────────────────────────────────────────────
 
-function OrderPickupCard({ order }: OrderPickupCardProps) {
+function ActiveOrderCard({ order }: { order: Order }) {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
   const prevQrCodeValue = useRef<string | null>(null);
 
-  // Handler for pickup button
+  // ─── Navigate to Delivery Map ───────────────────────────────────────────────
+
+  const openDeliveryMap = () => {
+    const riderId = JSON.stringify(loggedInUser.value?.id);
+    navigate('/delivery-map', {
+      state: {
+        orderId: order.order_id,
+        orderLongitude: Number(order.user_longitude),
+        orderLatitude: Number(order.user_latitude),
+        payment_mode: order.payment_mode,
+        riderId: riderId,
+      }
+    });
+  };
+
+  // ─── Primary Action Button ──────────────────────────────────────────────────
+
   const handleOrderPickup = async () => {
     if (order.pickup_accepted) {
-      if (order.pickup_status != 'in_transit') {
-        await customRequest('/mark-order-intransist', { method: "POST", data: { order_id: order.order_id } } as any);
+      setIsLoading(true);
+      try {
+        // Mark as in-transit if not already
+        if (order.pickup_status !== 'in_transit') {
+          await customRequest('/mark-order-intransist', {
+            method: "POST",
+            data: { order_id: order.order_id }
+          } as any);
+        }
+        openDeliveryMap();
+      } finally {
+        setIsLoading(false);
       }
-      sendDataToReactNative({
-        action: 'store-key-value',
-        key: "riderId",
-        value: order.order_id
-      });
-      sendDataToReactNative({
-        action: 'store-key-value',
-        key: "currentOrderId",
-        value: JSON.stringify(loggedInUser.value?.id),
-      });
-      navigate('/delivery-map', { state: { orderId: order.order_id, orderLongitude: Number(order.user_longitude), orderLatitude: Number(order.user_latitude), payment_mode: order.payment_mode } });
-
     } else {
-      // Trigger native QR scan via React Native bridge
+      // Trigger native QR scan
       sendDataToReactNative({
         action: 'scan-qr-code',
         orderId: order.order_id
@@ -111,28 +127,28 @@ function OrderPickupCard({ order }: OrderPickupCardProps) {
     }
   };
 
+  // ─── QR Code Handler ────────────────────────────────────────────────────────
 
-  const handlechangeOrderStatus = async () => {
+  const handleChangeOrderStatus = async () => {
     if (qrCodeScanResult.value !== null) {
       let qrCodeOrderFound = false;
-      for (const item of availableRidesData.value) {
-        // if ((qrCodeScanResult.value).includes(`${rootlink}/delivery/accept/${item.order_id}`)) {
-        // if (qrCodeScanResult.value ===  "ACCEPT_ORDER_" + item.order_id) {
-        const url = (qrCodeScanResult.value ?? '').split(rootBase)[1];
-        setIsLoading(true);
-        qrCodeScanResult.value = null;
-        qrCodeOrderFound = true;
-        const res = await customRequest(url, { method: "POST", data: { order_id: item.order_id } } as any);
-        if (res.status === 200) {
-          // sendDataToReactNative({
-          //   action: 'show-toast',
-          //   message: res.data?.message || (res.error?.message ?? 'Unknown error')
-          // });
-        }
-        setIsLoading(false);
-        break; // Stop after first match
-        // }
+
+      const url = (qrCodeScanResult.value ?? '').split(rootBase)[1];
+      setIsLoading(true);
+      qrCodeScanResult.value = null;
+      qrCodeOrderFound = true;
+
+      const res = await customRequest(url, {
+        method: "POST",
+        data: { order_id: order.order_id }
+      } as any);
+
+      if (res.status !== 200) {
+        showAlertPopup.value = "Failed to accept order. Please try again.";
       }
+
+      setIsLoading(false);
+
       if (!qrCodeOrderFound) {
         showAlertPopup.value = "Invalid QR Code";
         qrCodeScanResult.value = null;
@@ -147,53 +163,137 @@ function OrderPickupCard({ order }: OrderPickupCardProps) {
       qrCodeScanResult.value !== prevQrCodeValue.current
     ) {
       prevQrCodeValue.current = qrCodeScanResult.value;
-      handlechangeOrderStatus();
+      handleChangeOrderStatus();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qrCodeScanResult.value]);
 
+  // ─── Render ─────────────────────────────────────────────────────────────────
+
+  const isCOD = order.payment_mode === "COD";
+  const hasTip = order.tip_amount != null && (order.tip_amount ?? 0) > 0;
+
   return (
-    <div className="flex flex-col rounded-lg bg-white shadow-xs">
-      <div className="flex items-center p-3 gap-1">
-        <div className="flex flex-col mr-auto">
-          <span className='font-bold'>{order.order_id}</span>
-          <span className='text-xs text-gray-500'>{order.order_date_time}</span>
-        </div>
-        {
-          order.tip_amount !== null && (order.tip_amount ?? 0) > 0
-          &&
-          <div className="text-xs text-white rounded capitalize px-2 py-[2px] bg-green-500">Tip: ₹{order.tip_amount}</div>
-        }
-        <div className="text-xs text-white rounded capitalize px-2 py-[2px] bg-yellow-500">{order.user_address_type}</div>
+    <div className="flex flex-col h-full p-4 gap-4">
 
-        <div className="rounded bg-gray-100 p-2 rounded-full ml-1" onClick={() => { window.open(`tel:${order.phone_number}`, "_blank") }}>
-          <PhoneCallIcon size={20} />
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col">
+          <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Active Order</span>
+          <span className="text-xl font-bold text-gray-900 mt-0.5">{order.order_id}</span>
+          <div className="flex items-center gap-1 mt-1">
+            <ClockIcon size={12} className="text-gray-400" />
+            <span className="text-xs text-gray-400">{order.order_date_time}</span>
+          </div>
+        </div>
+
+        {/* Badges + Call */}
+        <div className="flex items-center gap-2">
+          {hasTip && (
+            <div className="text-xs text-white font-semibold rounded-full px-3 py-1 bg-green-500">
+              Tip ₹{order.tip_amount}
+            </div>
+          )}
+          <div className="text-xs text-white font-semibold rounded-full px-3 py-1 bg-yellow-500 capitalize">
+            {order.user_address_type}
+          </div>
+          <button
+            onClick={() => window.open(`tel:${order.phone_number}`, "_blank")}
+            className="bg-white border border-gray-200 rounded-full p-2.5 shadow-sm active:scale-95 transition"
+          >
+            <PhoneCallIcon size={18} className="text-gray-700" />
+          </button>
         </div>
       </div>
-      <div className="w-full h-[1px] bg-gray-100"></div>
-      <div className="p-3">
-        <p><span className='font-semibold'>Order By:</span> {order.user_name}</p>
-        <p><span className='font-semibold'>Address:</span> {order.user_area}</p>
-        <p><span className='font-semibold'>Payment Mode:</span> {order.payment_mode === "COD" ? "Cash on Delivery (COD)" : "Online Payment"}</p>
-        {
-          order.payment_mode === "COD"
-          &&
-          <p className='text-red-500 font-semibold'><span className=''>Amount to Collect:</span> ₹{order.amount_to_collect}</p>
-        }
 
+      {/* ── Order Details Card ── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1">
+
+        {/* Customer */}
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50">
+          <div className="bg-blue-50 rounded-full p-2">
+            <UserIcon size={16} className="text-blue-500" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-400">Customer</span>
+            <span className="font-semibold text-gray-800">{order.user_name}</span>
+          </div>
+        </div>
+
+        {/* Address */}
+        <div className="flex items-start gap-3 px-4 py-3.5 border-b border-gray-50">
+          <div className="bg-red-50 rounded-full p-2 mt-0.5">
+            <MapPinIcon size={16} className="text-red-500" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-400">Delivery Address</span>
+            <span className="font-semibold text-gray-800">{order.user_area}</span>
+          </div>
+        </div>
+
+        {/* Payment */}
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50">
+          <div className="bg-green-50 rounded-full p-2">
+            <CreditCardIcon size={16} className="text-green-500" />
+          </div>
+          <div className="flex flex-col flex-1">
+            <span className="text-xs text-gray-400">Payment</span>
+            <span className="font-semibold text-gray-800">
+              {isCOD ? "Cash on Delivery (COD)" : "Online Payment"}
+            </span>
+          </div>
+          {/* Online paid badge */}
+          {!isCOD && (
+            <div className="text-xs text-green-700 font-semibold bg-green-50 border border-green-200 rounded-full px-3 py-1">
+              Paid ✓
+            </div>
+          )}
+        </div>
+
+        {/* COD amount — prominent warning */}
+        {isCOD && (
+          <div className="flex items-center gap-3 px-4 py-3.5 bg-red-50">
+            <div className="bg-red-100 rounded-full p-2">
+              <PackageIcon size={16} className="text-red-500" />
+            </div>
+            <div className="flex flex-col flex-1">
+              <span className="text-xs text-red-400 font-medium">Collect from Customer</span>
+              <span className="text-xl font-bold text-red-600">₹{order.amount_to_collect}</span>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="w-full h-[1px] bg-gray-100"></div>
-      <div className="flex items-center p-3" onClick={handleOrderPickup}>
-        <div className={`flex items-center justify-center w-full p-3 rounded-lg text-white text-center font-bold ${order.pickup_accepted ? 'bg-green-500' : 'bg-blue-500'} bg-blue-500`}>
-          {
-            isLoading
-              ? <BeatLoader color="white" size={25} />
-              : order.pickup_accepted
-                ? "Open Map"
-                : "Scan QR to Accept"
+
+      {/* ── Status Indicator ── */}
+      {order.pickup_accepted && (
+        <div className="flex items-center justify-center gap-2 py-2">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-sm text-green-600 font-medium">
+            {order.pickup_status === 'in_transit' ? 'In Transit' : 'Pickup Accepted'}
+          </span>
+        </div>
+      )}
+
+      {/* ── Action Button ── */}
+      <button
+        className={`
+          w-full py-4 rounded-2xl text-white font-bold text-base shadow-lg
+          active:scale-95 transition-all flex items-center justify-center
+          ${order.pickup_accepted
+            ? 'bg-green-500 active:bg-green-600'
+            : 'bg-blue-600 active:bg-blue-700'
           }
-        </div>
-      </div>
+        `}
+        onClick={handleOrderPickup}
+        disabled={isLoading}
+      >
+        {isLoading
+          ? <BeatLoader color="white" size={10} />
+          : order.pickup_accepted
+            ? "📍 Open Delivery Map"
+            : "📷 Scan QR to Accept"
+        }
+      </button>
+
     </div>
-  )
+  );
 }
