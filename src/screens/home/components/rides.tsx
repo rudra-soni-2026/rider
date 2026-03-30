@@ -1,7 +1,8 @@
-import { PhoneCallIcon, MapPinIcon, UserIcon, CreditCardIcon, ClockIcon, PackageIcon } from 'lucide-react';
+import { PhoneCallIcon, MapPinIcon, UserIcon, CreditCardIcon, PackageIcon } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { BeatLoader } from 'react-spinners';
+import formatOrderId from '../../../utils/formatOrderId';
 import EmptyPlaceholder from '../../../components/emptyPlaceholder';
 import { AppLoader } from '../../../components/loader';
 import { availableForRide, showAlertPopup } from '../../../state/uiState';
@@ -46,6 +47,20 @@ const RidesComponent: React.FC = () => {
             console.error("Failed to parse order_address", e);
           }
 
+          let amountToCollect = Number(order.totalAmount);
+          try {
+            if (order.calculation_details) {
+              const calcDetails = typeof order.calculation_details === 'string'
+                ? JSON.parse(order.calculation_details)
+                : order.calculation_details;
+              if (calcDetails && calcDetails.total) {
+                amountToCollect = Number(calcDetails.total);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to parse calculation_details", e);
+          }
+
           return {
             order_id: order.id,
             pickup_accepted: order.status === 'pickup_accepted' || order.status === 'in_transit',
@@ -53,9 +68,9 @@ const RidesComponent: React.FC = () => {
             user_longitude: Number(addressData.lng),
             user_latitude: Number(addressData.lat),
             order_date_time: new Date(order.createdAt).toLocaleString(),
-            amount_to_collect: Number(order.totalAmount),
+            amount_to_collect: amountToCollect,
             tip_amount: 0,
-            user_address_type: "Home", 
+            user_address_type: "Home",
             user_name: order.user?.name || "Customer",
             user_area: addressData.formattedAddress,
             payment_mode: order.payment_method,
@@ -85,9 +100,9 @@ const RidesComponent: React.FC = () => {
     return <AppLoader />;
   }
 
-  const order = availableRidesData.value[0] ?? null;
+  const rides = availableRidesData.value;
 
-  if (!order) {
+  if (rides.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center p-6">
         <EmptyPlaceholder title='No active orders' subtitle="New orders will appear here automatically" />
@@ -96,8 +111,10 @@ const RidesComponent: React.FC = () => {
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-gray-50">
-      <ActiveOrderCard order={order} />
+    <div className="w-full h-full flex flex-col bg-slate-50 overflow-y-auto px-4 py-8 gap-8">
+      {rides.map((order) => (
+        <ActiveOrderCard key={order.order_id} order={order} />
+      ))}
     </div>
   );
 };
@@ -193,129 +210,95 @@ function ActiveOrderCard({ order }: { order: Order }) {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   const isCOD = order.payment_mode === "COD";
-  const hasTip = order.tip_amount != null && (order.tip_amount ?? 0) > 0;
 
   return (
-    <div className="flex flex-col h-full p-4 gap-4">
+    <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-col gap-3 shadow-sm active:scale-[0.98] transition-transform">
 
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between">
-        <div className="flex flex-col">
-          <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Active Order</span>
-          <span className="text-xl font-bold text-gray-900 mt-0.5">{order.order_id}</span>
-          <div className="flex items-center gap-1 mt-1">
-            <ClockIcon size={12} className="text-gray-400" />
-            <span className="text-xs text-gray-400">{order.order_date_time}</span>
-          </div>
-        </div>
-
-        {/* Badges + Call */}
-        <div className="flex items-center gap-2">
-          {hasTip && (
-            <div className="text-xs text-white font-semibold rounded-full px-3 py-1 bg-green-500">
-              Tip ₹{order.tip_amount}
-            </div>
-          )}
-          <div className="text-xs text-white font-semibold rounded-full px-3 py-1 bg-yellow-500 capitalize">
+      {/* ── Compact Header ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-baseline gap-2">
+          <span className="text-lg font-bold text-slate-900">{formatOrderId(order.order_id)}</span>
+          <span className="text-[9px] bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded text-slate-400 font-bold uppercase">
             {order.user_address_type}
-          </div>
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] text-slate-300 font-bold uppercase">{order.order_date_time.split(',')[1]}</span>
           <button
             onClick={() => window.open(`tel:${order.phone_number}`, "_blank")}
-            className="bg-white border border-gray-200 rounded-full p-2.5 shadow-sm active:scale-95 transition"
+            className="bg-blue-50 text-blue-600 rounded-lg p-2 active:scale-95 transition"
           >
-            <PhoneCallIcon size={18} className="text-gray-700" />
+            <PhoneCallIcon size={16} strokeWidth={2.5} />
           </button>
         </div>
       </div>
 
-      {/* ── Order Details Card ── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1">
-
-        {/* Customer */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50">
-          <div className="bg-blue-50 rounded-full p-2">
-            <UserIcon size={16} className="text-blue-500" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs text-gray-400">Customer</span>
-            <span className="font-semibold text-gray-800">{order.user_name}</span>
+      {/* ── Compact Content ── */}
+      <div className="flex flex-col gap-2 bg-slate-50/50 p-3 rounded-xl border border-slate-50">
+        <div className="flex items-center gap-3">
+          <UserIcon size={14} className="text-slate-400 shrink-0" />
+          <span className="text-xs font-semibold text-slate-700 truncate">{order.user_name}</span>
+          <div className="ml-auto flex items-center gap-1.5 bg-white px-2 py-1 rounded shadow-sm">
+            <CreditCardIcon size={12} className={isCOD ? "text-red-400" : "text-green-400"} />
+            <span className="text-[10px] font-bold text-slate-500 uppercase">{isCOD ? "COD" : "PAID"}</span>
           </div>
         </div>
 
-        {/* Address */}
-        <div className="flex items-start gap-3 px-4 py-3.5 border-b border-gray-50">
-          <div className="bg-red-50 rounded-full p-2 mt-0.5">
-            <MapPinIcon size={16} className="text-red-500" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs text-gray-400">Delivery Address</span>
-            <span className="font-semibold text-gray-800">{order.user_area}</span>
-          </div>
+        <div className="flex items-start gap-3">
+          <MapPinIcon size={14} className="text-slate-400 shrink-0 mt-0.5" />
+          <span className="text-xs font-bold text-slate-600 leading-tight line-clamp-2">{order.user_area}</span>
         </div>
 
-        {/* Payment */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50">
-          <div className="bg-green-50 rounded-full p-2">
-            <CreditCardIcon size={16} className="text-green-500" />
-          </div>
-          <div className="flex flex-col flex-1">
-            <span className="text-xs text-gray-400">Payment</span>
-            <span className="font-semibold text-gray-800">
-              {isCOD ? "Cash on Delivery (COD)" : "Online Payment"}
-            </span>
-          </div>
-          {/* Online paid badge */}
-          {!isCOD && (
-            <div className="text-xs text-green-700 font-semibold bg-green-50 border border-green-200 rounded-full px-3 py-1">
-              Paid ✓
-            </div>
-          )}
-        </div>
-
-        {/* COD amount — prominent warning */}
         {isCOD && (
-          <div className="flex items-center gap-3 px-4 py-3.5 bg-red-50">
-            <div className="bg-red-100 rounded-full p-2">
-              <PackageIcon size={16} className="text-red-500" />
-            </div>
-            <div className="flex flex-col flex-1">
-              <span className="text-xs text-red-400 font-medium">Collect from Customer</span>
-              <span className="text-xl font-bold text-red-600">₹{order.amount_to_collect}</span>
-            </div>
+          <div className="mt-1 flex items-center justify-between bg-red-100/50 px-3 py-2 rounded-lg border border-red-100">
+            <span className="text-[9px] text-red-500 font-black uppercase tracking-widest">Collect Cash</span>
+            <span className="text-lg font-black text-red-600">₹{order.amount_to_collect}</span>
           </div>
         )}
       </div>
 
-      {/* ── Status Indicator ── */}
-      {order.pickup_accepted && (
-        <div className="flex items-center justify-center gap-2 py-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-sm text-green-600 font-medium">
-            {order.pickup_status === 'in_transit' ? 'In Transit' : 'Pickup Accepted'}
-          </span>
-        </div>
-      )}
+      {/* ── Action Area ── */}
+      <div className="flex gap-2">
+        {order.pickup_accepted && (
+          <div className="bg-green-50 px-3 rounded-xl border border-green-100 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[9px] font-black text-green-600 uppercase tracking-wider whitespace-nowrap">
+              {order.pickup_status === 'in_transit' ? 'In Transit' : 'Accepted'}
+            </span>
+          </div>
+        )}
 
-      {/* ── Action Button ── */}
-      <button
-        className={`
-          w-full py-4 rounded-2xl text-white font-bold text-base shadow-lg
-          active:scale-95 transition-all flex items-center justify-center
-          ${order.pickup_accepted
-            ? 'bg-green-500 active:bg-green-600'
-            : 'bg-blue-600 active:bg-blue-700'
-          }
-        `}
-        onClick={handleOrderPickup}
-        disabled={isLoading}
-      >
-        {isLoading
-          ? <BeatLoader color="white" size={10} />
-          : order.pickup_accepted
-            ? "📍 Open Delivery Map"
-            : "📷 Scan QR to Accept"
-        }
-      </button>
+        <button
+          className={`
+            flex-1 py-3.5 rounded-xl text-white font-bold text-xs shadow-lg transition-all
+            active:scale-[0.97] flex items-center justify-center gap-2
+            ${order.pickup_accepted
+              ? 'bg-green-500 shadow-green-100'
+              : 'bg-slate-900 shadow-slate-200'
+            }
+          `}
+          onClick={handleOrderPickup}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <BeatLoader color="white" size={6} />
+          ) : (
+            <>
+              {order.pickup_accepted ? (
+                <>
+                  <MapPinIcon size={16} strokeWidth={2.5} />
+                  <span>Go to Map</span>
+                </>
+              ) : (
+                <>
+                  <PackageIcon size={16} strokeWidth={2.5} />
+                  <span>Accept Ride</span>
+                </>
+              )}
+            </>
+          )}
+        </button>
+      </div>
 
     </div>
   );

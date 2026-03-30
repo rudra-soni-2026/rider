@@ -3,6 +3,7 @@ import { customRequest } from "../utils/customRequest";
 import { AppLoader } from "../components/loader";
 import EmptyPlaceholder from "../components/emptyPlaceholder";
 import { AppHeader } from "../components/header";
+import formatOrderId from "../utils/formatOrderId";
 
 type RideHistoryItem = {
     order_id: string;
@@ -47,7 +48,7 @@ const RideHistoryScreen: React.FC = () => {
                             className="bg-white rounded-lg border border-gray-200 p-6 flex flex-col gap-1 border border-gray-100 hover:shadow-2xl transition-shadow"
                         >
                             <div className="flex items-center justify-between">
-                                <span className="text font-semibold text-blue-600">Order #{ride.order_id}</span>
+                                <span className="text font-semibold text-blue-600">Order {formatOrderId(ride.order_id)}</span>
                                 <span className="ml-auto text-right text-xs text-gray-400">{new Date(ride.delivered_at).toLocaleString()}</span>
                             </div>
                             <div className="mb-0">
