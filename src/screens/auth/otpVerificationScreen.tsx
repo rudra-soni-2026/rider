@@ -11,7 +11,7 @@ import sendDataToReactNative from "../../utils/nativeCommunication";
 const OtpVerificationScreen = () => {
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
     const [timer, setTimer] = useState(30);
-    const inputs = useRef([]);
+    const inputs = useRef<(HTMLInputElement | null)[]>([]);
     const [phone, setPhone] = useState("");
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -39,14 +39,14 @@ const OtpVerificationScreen = () => {
         }
     };
 
-    const handleKeyDown = (e, index: number) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
         if (e.key === "Backspace" && !otp[index] && index > 0) {
             inputs.current[index - 1]?.focus();
         }
     };
 
     const resendOTP = async () => {
-        const res = await customRequest("/auth/send-otp", {
+        await customRequest("/auth/send-otp", {
             method: "POST", data: {
                 phone: phone,
                 'type': 'delivery-partner',
@@ -70,44 +70,42 @@ const OtpVerificationScreen = () => {
             });
             if (res.status === 200) {
 
-                secureLocalStorage.setItem("key", res.data.data.authorization.token)
+                const token = res.data.token;
+                const userData = res.data.data;
 
-                if (res.data.data.details_submitted) {
-                    loggedInUser.value = res.data.data;
+                secureLocalStorage.setItem("key", token)
 
-                    sendDataToReactNative(
-                        {
-                            action: 'store-key-value',
-                            key: "token",
-                            value: res.data.data.authorization.token
-                        }
-                    )
+                loggedInUser.value = userData;
 
-                    delete res.data.data.authorization;
-                    secureLocalStorage.setItem("user", res.data.data);
+                sendDataToReactNative(
+                    {
+                        action: 'store-key-value',
+                        key: "token",
+                        value: token
+                    }
+                )
 
-                    sendDataToReactNative(
-                        {
-                            action: 'store-key-value',
-                            key: "user",
-                            value: JSON.stringify(res.data.data)
-                        }
-                    )
+                secureLocalStorage.setItem("user", userData);
 
-                    currentSelectedBottomTabIndex.value = 0;
+                sendDataToReactNative(
+                    {
+                        action: 'store-key-value',
+                        key: "user",
+                        value: JSON.stringify(userData)
+                    }
+                )
 
-                    setTimeout(() => {
-                        navigate("/");
-                        setLoading(false);
-                    }, 500);
-                } else {
-                    navigate("/onboarding");
-                }
+                currentSelectedBottomTabIndex.value = 0;
+
+                setTimeout(() => {
+                    navigate("/");
+                    setLoading(false);
+                }, 500);
             } else {
                 setLoading(false);
                 showAlertPopup.value = res.error.message;
             }
-        } catch (err) {
+        } catch (err: any) {
             setError(err.message || "Failed to verify OTP. Please try again.");
             setLoading(false);
         }
@@ -115,7 +113,7 @@ const OtpVerificationScreen = () => {
 
     return (
         <div className="min-h-screen bg-white flex flex-col">
-            <AppBar title="OTP Verification" onBackPress={true} />
+            <AppBar title="OTP Verification" onBackPress={true} share={false} />
 
             <div className="p-6">
 
@@ -130,9 +128,9 @@ const OtpVerificationScreen = () => {
                     {otp.map((val, i) => (
                         <input
                             key={i}
-                            ref={el => inputs.current[i] = el}
+                            ref={(el) => { inputs.current[i] = el; }}
                             type="number"
-                            maxLength="1"
+                            maxLength={1}
                             value={val}
                             onChange={e => handleChange(e.target.value, i)}
                             onKeyDown={e => handleKeyDown(e, i)}

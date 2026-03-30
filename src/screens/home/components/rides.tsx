@@ -10,6 +10,24 @@ import { customRequest } from '../../../utils/customRequest';
 import sendDataToReactNative from '../../../utils/nativeCommunication';
 import { rootBase } from '../../../consts/links';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Order = {
+  order_id: string;
+  pickup_accepted: boolean;
+  user_longitude: number;
+  user_latitude: number;
+  order_date_time: string;
+  amount_to_collect: number;
+  tip_amount?: number;
+  user_address_type: string;
+  user_name: string;
+  user_area: string;
+  payment_mode: string;
+  phone_number: string;
+  pickup_status: string;
+};
+
 // ─── Container ────────────────────────────────────────────────────────────────
 
 const RidesComponent: React.FC = () => {
@@ -17,8 +35,34 @@ const RidesComponent: React.FC = () => {
   const getAvailableRides = async () => {
     if (availableForRide.value) {
       const res = await customRequest("/available-rides");
-      if (res.status === 200) {
-        availableRidesData.value = res.data.available_ride;
+      if (res.status === 200 && res.data && res.data.data) {
+        const rides = (res.data.data.available_ride || []).map((order: any) => {
+          let addressData = { formattedAddress: "Address not available", lat: 0, lng: 0, house_no: "", street: "" };
+          try {
+            if (order.order_address) {
+              addressData = JSON.parse(order.order_address);
+            }
+          } catch (e) {
+            console.error("Failed to parse order_address", e);
+          }
+
+          return {
+            order_id: order.id,
+            pickup_accepted: order.status === 'pickup_accepted' || order.status === 'in_transit',
+            pickup_status: order.status,
+            user_longitude: Number(addressData.lng),
+            user_latitude: Number(addressData.lat),
+            order_date_time: new Date(order.createdAt).toLocaleString(),
+            amount_to_collect: Number(order.totalAmount),
+            tip_amount: 0,
+            user_address_type: "Home", 
+            user_name: order.user?.name || "Customer",
+            user_area: addressData.formattedAddress,
+            payment_mode: order.payment_method,
+            phone_number: order.user?.phone || "0000000000",
+          };
+        });
+        availableRidesData.value = rides;
       }
     }
   };
@@ -41,7 +85,6 @@ const RidesComponent: React.FC = () => {
     return <AppLoader />;
   }
 
-  // ✅ Only one order is ever assigned to the rider at a time
   const order = availableRidesData.value[0] ?? null;
 
   if (!order) {
@@ -60,26 +103,6 @@ const RidesComponent: React.FC = () => {
 };
 
 export default RidesComponent;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Order = {
-  order_id: string;
-  pickup_accepted: boolean;
-  user_longitude: number;
-  user_latitude: number;
-  order_date_time: string;
-  amount_to_collect: number;
-  tip_amount?: number;
-  user_address_type: string;
-  user_name: string;
-  user_area: string;
-  payment_mode: string;
-  phone_number: string;
-  pickup_status: string;
-};
-
-// ─── Single Order Card ────────────────────────────────────────────────────────
 
 function ActiveOrderCard({ order }: { order: Order }) {
   const [isLoading, setIsLoading] = useState(false);

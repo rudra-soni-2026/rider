@@ -15,7 +15,10 @@ type CustomRequestOptions = {
 export async function customRequest(url: string, { method = 'GET', data, params }: CustomRequestOptions = {}) {
     const httpMethod = method.toUpperCase();
 
-    let fullUrl = rootlink + url;
+    // Sanitize URL to avoid double slashes
+    let sanitizedUrl = url.startsWith('/') ? url.slice(1) : url;
+    let fullUrl = rootlink.endsWith('/') ? `${rootlink}${sanitizedUrl}` : `${rootlink}/${sanitizedUrl}`;
+
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
     };
@@ -32,7 +35,7 @@ export async function customRequest(url: string, { method = 'GET', data, params 
 
     if (httpMethod === 'GET' && params) {
         const queryString = new URLSearchParams(params).toString();
-        fullUrl = `${url}?${queryString}`;
+        fullUrl = `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}${queryString}`;
     } else if (data) {
         (fetchOptions as any).body = JSON.stringify(data);
     }
